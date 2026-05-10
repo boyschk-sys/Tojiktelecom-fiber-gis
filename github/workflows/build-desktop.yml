@@ -1,0 +1,76 @@
+name: Build Windows .exe
+
+# Triggers:
+#   • Manual run from the Actions tab (workflow_dispatch) — lets you set the API URL
+#   • Push of a tag like v1.0.0 — auto-builds and attaches the .exe to a GitHub Release
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Absolute API base URL, e.g. https://your-app.replit.app/api"
+        required: true
+        default: "https://your-app.replit.app/api"
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+          run_install: false
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web bundle (mobile mode → relative paths)
+        env:
+          MOBILE_BUILD: "1"
+          VITE_API_BASE_URL: ${{ inputs.api_url || 'https://your-app.replit.app/api' }}
+        working-directory: artifacts/pon-gis
+        run: pnpm exec vite build --config vite.config.ts
+
+      - name: Package with electron-builder
+        working-directory: artifacts/pon-gis
+        env:
+          # Skip code signing — produces unsigned .exe (Windows SmartScreen will warn).
+          # To sign, set CSC_LINK + CSC_KEY_PASSWORD secrets and remove this line.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: pnpm exec electron-builder --win --config electron-builder.json --publish never
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tojiktelecom-Fiber-GIS-Windows
+          path: artifacts/pon-gis/dist-electron/*.exe
+          retention-days: 30
+
+      - name: Attach to release (only on tag push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/pon-gis/dist-electron/*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
