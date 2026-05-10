@@ -1,0 +1,27 @@
+name: Build Windows .exe
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Absolute API base URL'
+        required: true
+        default: 'https://8f534ef1-8207-4796-ba88-d3414436c487-00-16zu2ahai7f64.sisko.replit.dev/api'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Build EXE
+        run: npm run build-windows -- --api-url=${{ github.event.inputs.api_url }}
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tojiktelecom-Fiber-GIS-Windows
+          path: dist/*.exe
