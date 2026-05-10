@@ -12,14 +12,24 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --no-frozen-lockfile
+
       - name: Build EXE
-        run: npm run build-windows -- --api-url=${{ github.event.inputs.api_url }}
+        run: pnpm run build-windows -- --api-url=${{ github.event.inputs.api_url }}
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
